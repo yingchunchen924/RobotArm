@@ -1,0 +1,18 @@
+# 本机（开发 PC）可安装依赖。
+# 用于运行 src/robotarm 纯逻辑模块、单元测试、Web 后端骨架。
+#
+# ⚠️ 开发板上的 ROS2 / ais_bench / aclruntime / 机械臂驱动 不在此文件，
+#    见 scripts/setup_env.sh。
+
+pyyaml>=6.0
+numpy>=1.21
+opencv-python>=4.5
+pytest>=7.0
+fastapi>=0.100
+uvicorn>=0.20
+
+# 阶段五 PC 推理（可选）：用 onnx 后端在本机验证识别后处理。
+# 真机用 ais_bench 加载 .om，不在此列（见 scripts/setup_env.sh）。
+# 注：若本机 onnxruntime 较新版本 DLL 加载失败，可降级 onnxruntime==1.16.3。
+onnxruntime>=1.16
+onnx>=1.12

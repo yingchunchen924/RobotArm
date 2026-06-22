@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>电力库房机械臂管理系统</title>
+  <style>
+    :root { --bg:#0f1419; --panel:#1a2230; --line:#2a3548; --txt:#e6edf3; --muted:#8b98a8; --accent:#3b82f6; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+           background:var(--bg); color:var(--txt); }
+    header { padding:16px 24px; background:var(--panel); border-bottom:1px solid var(--line);
+             display:flex; align-items:center; justify-content:space-between; }
+    header h1 { font-size:18px; margin:0; }
+    .badge { font-size:12px; padding:3px 10px; border-radius:12px; background:#243; color:#6f6; }
+    .grid { display:grid; grid-template-columns:2fr 1fr; gap:16px; padding:16px 24px; }
+    .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; }
+    .panel h2 { font-size:14px; margin:0 0 12px; color:var(--muted); font-weight:600;
+                text-transform:uppercase; letter-spacing:.5px; }
+    #video { width:100%; aspect-ratio:4/3; background:#000; border-radius:8px;
+             display:flex; align-items:center; justify-content:center; color:var(--muted); }
+    .btns { display:flex; flex-wrap:wrap; gap:8px; }
+    button { background:var(--accent); color:#fff; border:none; padding:9px 14px; border-radius:7px;
+             cursor:pointer; font-size:13px; }
+    button.ghost { background:transparent; border:1px solid var(--line); color:var(--txt); }
+    button:hover { opacity:.9; }
+    .stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .stat { background:#131b27; border:1px solid var(--line); border-radius:8px; padding:12px; }
+    .stat .num { font-size:24px; font-weight:700; }
+    .stat .lbl { font-size:12px; color:var(--muted); }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th,td { text-align:left; padding:6px 8px; border-bottom:1px solid var(--line); }
+    th { color:var(--muted); font-weight:600; }
+    .ok { color:#6f6; } .fail { color:#f77; } .skip { color:#fc6; }
+    .row { display:flex; gap:8px; align-items:center; margin-bottom:8px; }
+    .dot { width:8px; height:8px; border-radius:50%; background:#6f6; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>⚡ 电力库房智能识别与机械臂抓取系统</h1>
+    <span class="badge" id="modeBadge">加载中…</span>
+  </header>
+
+  <div class="grid">
+    <!-- 左：视频 + 识别 + 控制 -->
+    <div>
+      <div class="panel">
+        <h2>实时画面</h2>
+        <div id="video">视频流占位（真机接入后显示摄像头画面 + 识别框）</div>
+      </div>
+
+      <div class="panel" style="margin-top:16px;">
+        <h2>机械臂控制</h2>
+        <div class="row"><span class="dot" id="armDot"></span>
+          <span>机械臂状态：<b id="armStatus">-</b></span></div>
+        <div class="row" style="font-size:13px;color:var(--muted);">
+          <span>当前流程：<b id="graspState" style="color:var(--txt)">-</b>
+          <span id="graspDetail"></span></span></div>
+        <div class="btns">
+          <button onclick="api('/api/tasks/start','POST')">开始识别抓取</button>
+          <button class="ghost" onclick="api('/api/tasks/stop','POST')">停止</button>
+          <button class="ghost" onclick="api('/api/arm/home','POST')">回到初始姿态</button>
+          <button class="ghost" onclick="api('/api/inventory/reset','POST')">清空统计</button>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:16px;">
+        <h2>识别结果</h2>
+        <table id="detTable">
+          <thead><tr><th>类别</th><th>置信度</th><th>中心点</th><th>库区</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 右：库房统计 + 操作日志 -->
+    <div>
+      <div class="panel">
+        <h2>库房统计</h2>
+        <div class="stats" id="stats"></div>
+      </div>
+      <div class="panel" style="margin-top:16px;">
+        <h2>操作日志</h2>
+        <table id="logTable">
+          <thead><tr><th>时间</th><th>类别</th><th>结果</th><th>库区</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const BASE = ""; // 同源
+
+    async function api(path, method='GET') {
+      try {
+        const r = await fetch(BASE + path, { method });
+        const data = await r.json();
+        refresh();
+        return data;
+      } catch (e) { console.error(e); }
+    }
+
+    async function refresh() {
+      // 状态
+      const st = await (await fetch(BASE + '/api/status')).json();
+      document.getElementById('modeBadge').textContent =
+        st.mock_mode ? 'MOCK 模式' : '真机模式';
+      document.getElementById('armStatus').textContent = st.arm_status;
+      document.getElementById('armDot').style.background =
+        st.running ? '#6f6' : '#888';
+      document.getElementById('graspState').textContent = st.state_label || '-';
+      document.getElementById('graspDetail').textContent =
+        st.detail ? ` — ${st.detail}` : '';
+
+      // 识别
+      const det = (await (await fetch(BASE + '/api/detections')).json()).detections || [];
+      const dtb = document.querySelector('#detTable tbody');
+      dtb.innerHTML = det.map(d =>
+        `<tr><td>${d.label||d.name}</td><td>${(d.conf*100).toFixed(0)}%</td>
+         <td>(${d.cx}, ${d.cy})</td><td>${d.zone||'-'}</td></tr>`).join('');
+
+      // 库存
+      const inv = await (await fetch(BASE + '/api/inventory')).json();
+      const labels = inv.zone_labels || {};
+      const counts = inv.counts || {};
+      const keys = Object.keys(labels).length ? Object.keys(labels) : Object.keys(counts);
+      document.getElementById('stats').innerHTML = keys.map(k =>
+        `<div class="stat"><div class="num">${counts[k]||0}</div>
+         <div class="lbl">${labels[k]||k}</div></div>`).join('') +
+        `<div class="stat"><div class="num">${inv.total||0}</div>
+         <div class="lbl">总计</div></div>`;
+
+      // 日志
+      const logs = inv.recent_logs || [];
+      const ltb = document.querySelector('#logTable tbody');
+      ltb.innerHTML = logs.map(l => {
+        const cls = l.result==='success'?'ok':(l.result==='failed'?'fail':'skip');
+        return `<tr><td>${l.timestamp.slice(11)||l.timestamp}</td><td>${l.category}</td>
+          <td class="${cls}">${l.result}</td><td>${l.zone}</td></tr>`;
+      }).join('');
+    }
+
+    refresh();
+    setInterval(refresh, 3000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+# 可视化系统配置
+# 对应开发计划第7节：可视化电力库房管理系统。
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+
+# 视频源
+video:
+  source: 0           # 摄像头索引（USB 摄像头通常为 0）；真机上由识别主程序提供帧
+  width: 640
+  height: 480
+  fps: 15
+
+# 数据存储（初期 JSON/CSV，后续可升级 SQLite，见开发计划 2.2）
+storage:
+  inventory_file: "web/backend/data/inventory.json"
+  log_file: "web/backend/data/operation_log.csv"
+
+# 是否使用 mock 数据（本机无真机时为 true，可在 PC 上演示整套 Web）
+mock_mode: true

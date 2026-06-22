@@ -1,0 +1,56 @@
+# 机械臂参数配置
+# 说明：所有关节角单位为「舵机角度」(0-180/0-270，与手册 Arm_serial_servo_write 一致)，
+#       不是弧度。运动学服务内部会做角度<->弧度转换。
+
+# 机械臂初始/标定姿态（对应手册 calibration_map 里的 joints_init = [xy0, xy1, 0,0,90,0]）
+init_pose:
+  joint1: 90      # xy[0]，标定时对准标定框，相机校准后由 XYT_config 决定
+  joint2: 130     # xy[1]
+  joint3: 0
+  joint4: 0
+  joint5: 90
+  joint6: 0
+
+# “架起/抬起”过渡姿态（对应手册 move() 里的 joints_uu / joints_00）
+ready_pose:
+  joints: [90, 80, 50, 50, 265, 30]   # 物体上方过渡姿态
+
+# 夹爪角度（舵机6号）
+gripper:
+  open: 0         # 松开
+  close: 30       # 释放物体时的张开角（手册放置时用 30）
+  grasp: 100      # 夹紧角度 self.grap_joint（手册典型值 100，按物体微调）
+
+# 动作速度（毫秒，对应 Arm_serial_servo_write 的时间参数）
+speed_ms:
+  fast: 500
+  normal: 1000
+  slow: 1500
+
+# 像素 -> 机械臂平面坐标 转换参数
+# 来源：手册 get_pos / get_Sqaure 中的公式
+#   a = round((point_x - 320) / x_div, 5)
+#   b = round((image_h - point_y) / y_div * y_scale + y_bias, 5)
+# 这些魔数原本散落在手册代码里，统一抽到这里，便于标定时调整。
+coordinate:
+  image_width: 640
+  image_height: 480
+  x_center: 320       # 图像水平中心
+  x_div: 4000.0       # 水平像素->米 的缩放分母
+  y_div: 3000.0       # 垂直像素->米 的缩放分母
+  y_scale: 0.8        # 垂直方向比例修正
+  y_bias: 0.19        # 垂直方向偏置（米）
+
+# 机械臂可达工作范围（平面坐标，单位米）。超出范围的目标判定为不可达并跳过。
+# 注意：这里是保守占位值，真机标定后务必修正。
+reach_bounds:
+  x_min: -0.20
+  x_max: 0.20
+  y_min: 0.10
+  y_max: 0.35
+
+# 标定配置文件路径（真机上由相机校准.ipynb 生成，见 config/calibration.md）
+calibration_files:
+  dp_bin: "config/dp.bin"               # 透视变换矩阵（4x2 int32）
+  xyt_config: "config/XYT_config.txt"   # 相机标定配置
+  offset_txt: "config/offset.txt"       # 硬件误差补偿（两个浮点）

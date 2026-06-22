@@ -1,0 +1,36 @@
+# 抓取参数配置
+# 为不同物体设置「夹爪角度」和「下降高度/放置姿态」，取代手册中散落的硬编码。
+# 对应开发计划阶段六：「为不同物体设置夹爪角度和下降高度」。
+#
+# 每个条目：
+#   gripper_grasp: 夹紧该物体时的舵机6角度（物体越细夹得越紧，角度越大）
+#   place_joints:  放到对应库区时的整臂关节角 [j1,j2,j3,j4,j5,j6]
+#                  对应手册 garbage_grap.py 里的 joints_down
+#
+# 库区放置姿态来源：手册 dofbot_garbage_yolov5/garbage_grap.py arm_run() 中的 joints_down
+# （这里把 self.grap_joint 用各物体的 gripper_grasp 替换）。
+
+defaults:
+  gripper_grasp: 100      # 默认夹紧角，未单独配置的类别使用此值
+  approach_speed_ms: 1000 # 接近物体速度
+  grasp_speed_ms: 500     # 夹取速度
+
+# 库区放置姿态（按库区，而非按单个物体，便于类别映射到库区后复用）
+# 数值来自手册四类垃圾桶位的 joints_down，作为占位，真机标定后调整。
+place_zones:
+  electronic:             # 电子元器件区（借用手册“有害垃圾-红色”位）
+    place_joints: [45, 50, 20, 60, 265, 100]
+  hardware:               # 电力金具区（借用手册“可回收-蓝色”位）
+    place_joints: [27, 75, 0, 50, 265, 100]
+  tools:                  # 工具区（借用手册“厨余-绿色”位）
+    place_joints: [147, 75, 0, 50, 265, 100]
+  unsorted:               # 未分类/其他区（借用手册“其他-灰色”位）
+    place_joints: [133, 50, 20, 60, 265, 100]
+
+# 单个物体的夹爪角覆盖（可选，留空则用 defaults.gripper_grasp）
+per_object:
+  resistor:    { gripper_grasp: 130 }   # 电阻细小，夹紧些
+  capacitor:   { gripper_grasp: 120 }
+  screwdriver: { gripper_grasp: 90 }
+  wrench:      { gripper_grasp: 80 }
+  clamp:       { gripper_grasp: 95 }

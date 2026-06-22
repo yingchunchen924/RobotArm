@@ -1,0 +1,61 @@
+# 类别 -> 库房区域 映射配置
+# 对应开发计划阶段六的「类别到库位的映射配置」与第7节库房统计。
+# 识别模型输出的类别名(name) 映射到库区(zone)，库区再对应 grasp.yaml 的 place_zones。
+
+# 库区定义（与 grasp.yaml place_zones 的 key 对应）
+zones:
+  electronic:
+    label: "电子元器件区"
+    color: "#e74c3c"     # 前端展示用
+  hardware:
+    label: "电力金具区"
+    color: "#3498db"
+  tools:
+    label: "工具区"
+    color: "#2ecc71"
+  unsorted:
+    label: "未分类区"
+    color: "#95a5a6"
+
+# 类别 -> 库区。模型识别出的类别名作为 key。
+# 先按开发计划阶段四建议的 3~5 类铺开，真实模型类别确定后增改。
+category_to_zone:
+  # 电子元器件
+  resistor: electronic
+  capacitor: electronic
+  relay: electronic
+  terminal: electronic
+  switch_module: electronic
+  # 电力金具
+  clamp: hardware
+  bolt: hardware
+  washer: hardware
+  hook: hardware
+  insulator: hardware
+  # 工具
+  screwdriver: tools
+  wrench: tools
+  pliers: tools
+  tape_measure: tools
+  electrician_knife: tools
+
+# 未在表中的类别归入此库区
+default_zone: unsorted
+
+# 类别中文显示名（前端/日志用）
+category_label:
+  resistor: "电阻"
+  capacitor: "电容"
+  relay: "继电器"
+  terminal: "接线端子"
+  switch_module: "开关模块"
+  clamp: "线夹"
+  bolt: "螺栓"
+  washer: "垫片"
+  hook: "挂环"
+  insulator: "绝缘子"
+  screwdriver: "螺丝刀"
+  wrench: "扳手"
+  pliers: "钳子"
+  tape_measure: "卷尺"
+  electrician_knife: "电工刀"
