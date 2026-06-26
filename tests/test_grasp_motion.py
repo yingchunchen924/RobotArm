@@ -48,3 +48,27 @@ def test_pick_and_place_action_order():
     open_idxs = [i for i, m in enumerate(h) if "set_gripper 0" in m]
     grasp_idx = next(i for i, m in enumerate(h) if "set_gripper 100" in m)
     assert open_idxs[0] < grasp_idx < open_idxs[-1]
+
+
+def test_pick_and_place_keeps_gripper_closed_while_carrying():
+    arm = MockArmDriver()
+    GraspMotion(arm).pick_and_place(
+        grasp_joints=[10, 20, 30, 40, 265, 0],
+        place_joints=[135, 50, 20, 60, 265, 0],
+        ready_pose=[90, 80, 50, 50, 265, 0],
+        lift_pose=[135, 80, 50, 50, 265, 0],
+        gripper_open=0,
+        gripper_grasp=100,
+    )
+
+    grasp_idx = next(i for i, m in enumerate(arm.history) if "set_gripper 100" in m)
+    release_idx = next(
+        i for i, m in enumerate(arm.history[grasp_idx + 1 :], start=grasp_idx + 1)
+        if "set_gripper 0" in m
+    )
+    carrying_moves = [
+        m for m in arm.history[grasp_idx + 1 : release_idx]
+        if "move_joints" in m
+    ]
+    assert carrying_moves
+    assert all(m.rstrip().endswith("100] (1000ms)") for m in carrying_moves)

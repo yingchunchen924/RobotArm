@@ -14,6 +14,9 @@
     header h1 { font-size:18px; margin:0; }
     .badge { font-size:12px; padding:3px 10px; border-radius:12px; background:#243; color:#6f6; }
     .grid { display:grid; grid-template-columns:2fr 1fr; gap:16px; padding:16px 24px; }
+    .ctrl-row { display:flex; gap:16px; align-items:flex-start; flex-wrap:wrap; }
+    .ctrl-row > .panel { margin-top:16px; }
+    @media (max-width:900px) { .ctrl-row { flex-direction:column; } }
     .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; }
     .panel h2 { font-size:14px; margin:0 0 12px; color:var(--muted); font-weight:600;
                 text-transform:uppercase; letter-spacing:.5px; }
@@ -24,6 +27,10 @@
              cursor:pointer; font-size:13px; }
     button.ghost { background:transparent; border:1px solid var(--line); color:var(--txt); }
     button:hover { opacity:.9; }
+    button.c-red    { background:#e74c3c; }
+    button.c-yellow { background:#e0a700; }
+    button.c-blue   { background:#2d7ff9; }
+    button.c-green  { background:#27ae60; }
     .stats { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     .stat { background:#131b27; border:1px solid var(--line); border-radius:8px; padding:12px; }
     .stat .num { font-size:24px; font-weight:700; }
@@ -47,23 +54,95 @@
     <div>
       <div class="panel">
         <h2>实时画面</h2>
-        <div id="video">视频流占位（真机接入后显示摄像头画面 + 识别框）</div>
+        <div id="video">
+          <img id="videoImg" src="/video" alt="实时画面"
+               style="width:100%;height:100%;object-fit:contain;border-radius:8px;"
+               onerror="this.style.display='none';document.getElementById('videoHint').style.display='block';" />
+          <span id="videoHint" style="display:none;">视频流占位（mock 模式或无摄像头；真机非 mock 时显示摄像头画面 + 识别框）</span>
+        </div>
       </div>
 
-      <div class="panel" style="margin-top:16px;">
+      <div class="ctrl-row">
+      <div class="panel" style="margin-top:16px;flex:2;min-width:0;">
         <h2>机械臂控制</h2>
         <div class="row"><span class="dot" id="armDot"></span>
           <span>机械臂状态：<b id="armStatus">-</b></span></div>
         <div class="row" style="font-size:13px;color:var(--muted);">
           <span>当前流程：<b id="graspState" style="color:var(--txt)">-</b>
           <span id="graspDetail"></span></span></div>
+        <div class="btns" style="margin-bottom:10px;">
+          <button id="voiceBtn" onclick="toggleVoice()">🎤 语音控制（按住说话）</button>
+          <span style="font-size:13px;color:var(--muted);align-self:center;">
+            <span id="voiceText">说「抓红色」「连贯全抓」「堆叠」「停止」「回初始位」</span></span>
+        </div>
+        <div class="btns" style="margin-bottom:10px;">
+          <button class="c-red"    onclick="apiColor('red')">抓红色</button>
+          <button class="c-yellow" onclick="apiColor('yellow')">抓黄色</button>
+          <button class="c-blue"   onclick="apiColor('blue')">抓蓝色</button>
+          <button class="c-green"  onclick="apiColor('green')">抓绿色</button>
+        </div>
+
+        <!-- 自定义顺序：点色块依次加入序列，按此顺序连贯抓 -->
+        <div style="border:1px dashed var(--line); border-radius:8px; padding:10px; margin-bottom:10px;">
+          <div style="font-size:12px; color:var(--muted); margin-bottom:6px;">自定义抓取顺序（点色块依次加入）</div>
+          <div class="btns" style="margin-bottom:8px;">
+            <button class="c-red"    onclick="addSeq('red')">＋红</button>
+            <button class="c-yellow" onclick="addSeq('yellow')">＋黄</button>
+            <button class="c-blue"   onclick="addSeq('blue')">＋蓝</button>
+            <button class="c-green"  onclick="addSeq('green')">＋绿</button>
+          </div>
+          <div style="font-size:13px; margin-bottom:8px;">已选顺序：<b id="seqText" style="color:var(--txt)">（空）</b></div>
+          <div class="btns">
+            <button onclick="startSeq()">按此顺序抓</button>
+            <button class="ghost" onclick="clearSeq()">清空顺序</button>
+          </div>
+        </div>
+
         <div class="btns">
-          <button onclick="api('/api/tasks/start','POST')">开始识别抓取</button>
+          <button onclick="api('/api/tasks/start','POST')">连贯全抓（红→黄→蓝→绿）</button>
+          <button onclick="api('/api/tasks/stack','POST')">堆叠（红→黄→蓝→绿码4层）</button>
           <button class="ghost" onclick="api('/api/tasks/stop','POST')">停止</button>
           <button class="ghost" onclick="api('/api/arm/home','POST')">回到初始姿态</button>
           <button class="ghost" onclick="api('/api/inventory/reset','POST')">清空统计</button>
         </div>
       </div>
+
+      <div class="panel" style="margin-top:16px;flex:3;min-width:0;">
+        <h2>实物分类（点照片抓取）</h2>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:8px;">
+          实物无颜色识别：先「拍工作台照片」，选物体，再在照片上点物体中心即可抓取。
+        </div>
+        <div class="btns" style="margin-bottom:10px;">
+          <button onclick="takePhoto()">拍工作台照片</button>
+          <span style="font-size:13px;color:var(--muted);align-self:center;">
+            当前物体：<b id="curObjText" style="color:var(--txt)">（未选）</b></span>
+        </div>
+        <div class="btns" style="margin-bottom:10px;">
+          <button class="c-blue"   onclick="selObj('copper_terminal')">铜端子→蓝</button>
+          <button class="c-blue"   onclick="selObj('copper_tube')">铜管→蓝</button>
+          <button class="c-yellow" onclick="selObj('udisk')">U盘→灰</button>
+          <button class="c-red"    onclick="selObj('battery')">电池→红</button>
+        </div>
+        <div class="row" style="font-size:13px;margin-bottom:8px;">
+          <label><input type="radio" name="pmode" value="single" checked> 单次抓取</label>
+          <label style="margin-left:14px;"><input type="radio" name="pmode" value="queue"> 连贯队列</label>
+        </div>
+        <div id="shotWrap" style="position:relative;display:inline-block;max-width:100%;
+             border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#000;">
+          <img id="shotImg" alt="点「拍工作台照片」获取画面" onclick="onShotClick(event)"
+               style="display:block;max-width:100%;cursor:crosshair;" />
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin:8px 0;">
+          点击位置：<b id="clickInfo" style="color:var(--txt)">—</b></div>
+        <div style="border:1px dashed var(--line);border-radius:8px;padding:10px;">
+          <div style="font-size:13px;margin-bottom:8px;">抓取队列：<b id="pickQueueText" style="color:var(--txt)">（空）</b></div>
+          <div class="btns">
+            <button onclick="runPickQueue()">连贯执行队列</button>
+            <button class="ghost" onclick="clearPickQueue()">清空队列</button>
+          </div>
+        </div>
+      </div>
+      </div><!-- /.ctrl-row -->
 
       <div class="panel" style="margin-top:16px;">
         <h2>识别结果</h2>
@@ -100,6 +179,133 @@
         refresh();
         return data;
       } catch (e) { console.error(e); }
+    }
+
+    // 单色抓取：POST /api/tasks/start_color?color=red
+    function apiColor(color) {
+      return api('/api/tasks/start_color?color=' + color, 'POST');
+    }
+
+    // 自定义顺序
+    const CN = { red:'红', yellow:'黄', blue:'蓝', green:'绿' };
+    let seq = [];
+    function renderSeq() {
+      document.getElementById('seqText').textContent =
+        seq.length ? seq.map(c => CN[c]).join(' → ') : '（空）';
+    }
+    function addSeq(color) { seq.push(color); renderSeq(); }
+    function clearSeq() { seq = []; renderSeq(); }
+    function startSeq() {
+      if (!seq.length) { alert('请先点色块选择顺序'); return; }
+      api('/api/tasks/start_seq?colors=' + seq.join(','), 'POST');
+    }
+
+    // ---- 实物分类（点照片抓取）----
+    const OBJ_CN = { copper_terminal:'铜端子', copper_tube:'铜管', udisk:'U盘', battery:'电池' };
+    let curObj = null;
+    let pickQueue = [];
+
+    function pmode() {
+      const r = document.querySelector('input[name="pmode"]:checked');
+      return r ? r.value : 'single';
+    }
+    function selObj(obj) {
+      curObj = obj;
+      document.getElementById('curObjText').textContent = OBJ_CN[obj] || obj;
+    }
+    async function takePhoto() {
+      const img = document.getElementById('shotImg');
+      try {
+        const r = await fetch('/api/photo?t=' + Date.now());
+        if (!r.ok) { alert('拍照失败（可能正在抓取，请稍后）'); return; }
+        const blob = await r.blob();
+        if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+        const url = URL.createObjectURL(blob);
+        img.dataset.url = url;
+        img.src = url;
+      } catch (e) { alert('拍照请求失败'); }
+    }
+    function onShotClick(ev) {
+      const img = ev.target;
+      if (!img.naturalWidth) { alert('请先拍工作台照片'); return; }
+      if (!curObj) { alert('请先选择物体'); return; }
+      const r = img.getBoundingClientRect();
+      const nw = img.naturalWidth || 640, nh = img.naturalHeight || 480;
+      const cx = Math.round((ev.clientX - r.left) / r.width * nw);
+      const cy = Math.round((ev.clientY - r.top) / r.height * nh);
+      if (cx < 0 || cx >= nw || cy < 0 || cy >= nh) return;
+      document.getElementById('clickInfo').textContent =
+        `${OBJ_CN[curObj]} @ (${cx}, ${cy})`;
+      if (pmode() === 'single') {
+        api(`/api/pick?object=${curObj}&cx=${cx}&cy=${cy}`, 'POST');
+      } else {
+        pickQueue.push({ obj: curObj, cx, cy });
+        renderPickQueue();
+      }
+    }
+    function renderPickQueue() {
+      document.getElementById('pickQueueText').textContent =
+        pickQueue.length
+          ? pickQueue.map(p => `${OBJ_CN[p.obj]}(${p.cx},${p.cy})`).join(' → ')
+          : '（空）';
+    }
+    function clearPickQueue() { pickQueue = []; renderPickQueue(); }
+    function runPickQueue() {
+      if (!pickQueue.length) { alert('队列为空'); return; }
+      const items = pickQueue.map(p => `${p.obj}:${p.cx},${p.cy}`).join(';');
+      api('/api/pick_seq?items=' + encodeURIComponent(items), 'POST');
+      pickQueue = [];
+      renderPickQueue();
+    }
+
+    // ---- 语音控制：点一下开始录音，再点一下结束 -> 上传识别 -> 触发动作 ----
+    let mediaRecorder = null, audioChunks = [], recording = false;
+    function setVoiceText(t) { document.getElementById('voiceText').textContent = t; }
+    async function toggleVoice() {
+      const btn = document.getElementById('voiceBtn');
+      if (!recording) {
+        // 开始录音
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          alert('浏览器不支持录音，请用 Chrome/Edge'); return;
+        }
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          mediaRecorder = new MediaRecorder(stream);
+          audioChunks = [];
+          mediaRecorder.ondataavailable = e => { if (e.data.size) audioChunks.push(e.data); };
+          mediaRecorder.onstop = () => {
+            stream.getTracks().forEach(t => t.stop());
+            uploadVoice(new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' }));
+          };
+          mediaRecorder.start();
+          recording = true;
+          btn.textContent = '🔴 录音中…（点击结束）';
+          btn.style.background = '#e74c3c';
+          setVoiceText('正在录音，说完点一下结束');
+        } catch (e) { alert('无法访问麦克风：' + e.message); }
+      } else {
+        // 结束录音
+        recording = false;
+        btn.textContent = '🎤 语音控制（按住说话）';
+        btn.style.background = '';
+        setVoiceText('识别中…');
+        mediaRecorder.stop();
+      }
+    }
+    async function uploadVoice(blob) {
+      try {
+        const r = await fetch('/api/voice', {
+          method: 'POST',
+          headers: { 'Content-Type': blob.type || 'audio/webm' },
+          body: blob,
+        });
+        const d = await r.json();
+        if (!d.ok) { setVoiceText('识别失败：' + (d.error || '未知')); return; }
+        if (!d.text) { setVoiceText('没听清，请再说一次'); return; }
+        const act = d.action ? `→ ${d.action_label}` : `→ ${d.action_label || '未匹配指令'}`;
+        setVoiceText(`听到「${d.text}」 ${act}`);
+        refresh();
+      } catch (e) { setVoiceText('上传失败：' + e.message); }
     }
 
     async function refresh() {
@@ -144,6 +350,18 @@
 
     refresh();
     setInterval(refresh, 3000);
+
+    // 视频流掉线（抓取临时占用摄像头导致流结束）后自动重连
+    const vimg = document.getElementById('videoImg');
+    vimg.addEventListener('error', () => {
+      setTimeout(() => {
+        vimg.style.display = 'block';                       // 恢复显示，重连成功才能看到
+        vimg.src = '/video?t=' + Date.now();
+      }, 2000);
+    });
+    vimg.addEventListener('load', () => {                   // 重连成功，藏掉占位提示
+      document.getElementById('videoHint').style.display = 'none';
+    });
   </script>
 </body>
 </html>

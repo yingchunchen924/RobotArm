@@ -19,3 +19,11 @@ storage:
 
 # 是否使用 mock 数据（本机无真机时为 true，可在 PC 上演示整套 Web）
 mock_mode: true
+
+# 小米 MiMo 大模型 API（语音控制用，OpenAI 兼容）
+# api_key 留空时优先读环境变量 MIMO_API_KEY；两者都没配则语音功能不可用。
+# 申请地址：小米开放平台 platform.xiaomimimo.com
+mimo:
+  api_key: ""        # 填你自己的 key（sk-...），或用环境变量 MIMO_API_KEY
+  base_url: "https://api.xiaomimimo.com/v1"
+  asr_model: "mimo-v2.5-asr"

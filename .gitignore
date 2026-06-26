@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# 虚拟环境
+venv/
+.venv/
+env/
+
+# 临时 / 缓存
+.robotarm_tmp/
+*.log
+*.tmp
+
+# 调试拍摄的工作区照片（团队无需，体积大）
+photos/
+
+# 密钥 / 本地配置（不要提交真实 API key）
+.env
+*.key
+
+# Agent / 工具产物
+.agents/
+.codex/
+.claude/
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 答辩 PPT / PPT 导出物（不上传到 GitHub）
+*.ppt
+*.pptx
+docs/ppt/
+docs/ppt.zip

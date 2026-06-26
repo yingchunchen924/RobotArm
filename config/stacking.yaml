@@ -1,29 +1,85 @@
-# 色块堆叠层位配置
-# 取代手册 dofbot_color_stacking/garbage_grap.py arm_run() 里硬编码的
-# 第 1~4 层 joints_down 数值，支持配置化的多层堆叠。
-# 对应开发计划阶段三：「将堆叠目标位置配置化，避免硬编码散落在代码中」。
+# Stacking config for the fixed four-cube layout.
+# Current fixed layout: red upper-left, yellow upper-right,
+# green lower-left, blue lower-right. Yellow mirrors red.
 
-# 抓取->堆叠过程中的过渡姿态（手册 move() 中的 joints_00 / joints_up）
-ready_pose:  [90, 135, 50, 50, 265, 30]   # joints_00 架起姿态(此处 j1=90 占位)
-lift_pose:   [135, 80, 50, 50, 265, 30]    # joints_up 抬起姿态
+ready_pose: [90, 80, 50, 50, 265, 100]
+lift_pose: [135, 80, 50, 50, 265, 30]
 
-# 夹爪
 gripper:
   open: 0
-  grasp: 100
+  grasp: 175
+  release: 30
 
-# 每一层的放置关节角（堆叠区在 j1=135 方向）
-# 数值来自手册 arm_run() 注释里的 a/b/c/d 及实际 joints_down。
-# 层号越高，机械臂下压越浅（物体叠得越高），j2/j3/j4 递变。
+pick_order: [red, yellow, blue, green]
+
+# Blue is partly outside the calibrated home-camera view. Rotate the camera
+# right after measuring the stack center so detection can confirm the block.
+post_center_detect_poses:
+  blue: [55, 135, 0, 0, 90, 30]
+  green: [135, 135, 0, 0, 90, 30]
+
+# Black center target measured from the camera at [91,135,0,0,90,30].
+# The script uses IK to generate placement joints from this target.
+place_target_xy: [0.01614, 0.24412]
+# Camera-to-gripper compensation from the r7 placement test:
+# the cube landed right/up of the black center, so command left/down.
+place_nudge: [-0.014, -0.033]
+
+# For layer 2+, detect the visible center of the current top cube in the
+# middle stack area and place the next cube on that center.
+detect_stack_center: true
+stack_center_min_layer: 2
+stack_center_detect_point: centroid
+stack_center_min_area: 1500
+stack_center_roi: [220, 160, 560, 440]
+# Top-face coordinates are shifted by camera perspective because the cube is
+# above the calibrated ground plane. This correction maps the detected top
+# center back to the actual stack placement center.
+stack_center_nudge: [-0.012, -0.063]
+stack_center_nudges:
+  2: [-0.012, -0.063]
+  3: [-0.014, -0.075]
+  4: [-0.016, -0.097]
+stack_center_stable_frames: 1
+stack_center_max_shift: 20
+
+# Fixed-position fallback. If color detection fails for a known cube,
+# stack uses this pixel point instead of stopping.
+use_fixed_pick_fallback: true
+force_fixed_pick_colors: [yellow, green]
+require_detect_colors: [blue, green]
+fixed_pick_xy:
+  yellow: [0.11791, 0.27388]
+  blue: [0.10500, 0.17200]
+  green: [-0.10500, 0.16200]
+fixed_pick_z:
+  blue: -0.065
+  green: -0.065
+fixed_pick_base:
+  blue: 45
+  green: 135
+pick_points:
+  red: [30, 325]
+  yellow: [610, 325]
+  green: [236, 469]
+  blue: [599, 390]
+
+# ROI format: [x1, y1, x2, y2]
+color_rois:
+  yellow: [520, 220, 640, 380]
+  red: [0, 120, 120, 380]
+  green: [250, 390, 560, 480]
+  blue: [500, 400, 640, 480]
+
+# Placement joints for the center black cross stacking area.
 layers:
   - level: 1
-    joints_down: [135, 50, 20, 60, 265, 100]
+    joints_down: [86, 50, 33, 41, 265, 175]
   - level: 2
-    joints_down: [135, 55, 38, 38, 265, 100]
+    joints_down: [86, 55, 42, 34, 265, 175]
   - level: 3
-    joints_down: [135, 60, 45, 30, 265, 100]
+    joints_down: [86, 60, 50, 26, 265, 175]
   - level: 4
-    joints_down: [135, 65, 55, 20, 265, 100]
+    joints_down: [86, 66, 58, 18, 265, 175]
 
-# 最大堆叠层数（开发计划要求至少 3~4 层）
 max_layers: 4

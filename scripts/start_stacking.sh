@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
-# 启动色块堆叠（手册 3.5）。在 Atlas 开发板上、两个终端分别运行。
-# ⚠️ 仅开发板可运行。
+# 启动色块堆叠（手册 4.5）。在 Atlas 开发板上运行。
 set -e
-ARM_DIR="/home/HwHiAiUser/E2ESamples/src/E2E-Sample/ros2_robot_arm"
 
-echo "终端1：启动运动学服务"
-echo "  cd $ARM_DIR && source setenv.sh && ros2 run dofbot_moveit dofbot_server"
+BOARD_HOME="/home/HwHiAiUser"
+ARM_DIR="$BOARD_HOME/E2ESamples/src/E2E-Sample/ros2_robot_arm"
+SCRIPT="$BOARD_HOME/RobotArm/scripts/board/color_sort_ros.py"
+
+echo "1) 确认运动学服务已启动："
+echo "   cd $ARM_DIR && source setenv.sh && ros2 run dofbot_moveit dofbot_server"
 echo
-echo "终端2：启动色块堆叠"
-echo "  cd $ARM_DIR && source setenv.sh && ros2 run robot_arm_color_stacking color_stacking"
+echo "2) 只规划不抓取，检查识别点/逆解/堆叠层位："
+echo "   python3 $SCRIPT stack --color any --layers 4"
 echo
-echo "堆叠层位由 config/stacking.yaml 配置（取代手册硬编码）。"
+echo "3) 真正执行连续堆叠："
+echo "   python3 $SCRIPT stack --color any --layers 4 --execute"
+echo
+echo "提示：如堆叠区里的已放方块被再次识别，用 --exclude-region x1,y1,x2,y2 排除该画面区域。"

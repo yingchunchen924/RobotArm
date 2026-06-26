@@ -82,8 +82,15 @@ class GraspMotion:
         :param lift_pose:    结束抬起姿态
         """
         arm = self.arm
+        ready_holding = list(ready_pose)
+        if len(ready_holding) >= 6:
+            ready_holding[5] = gripper_grasp
+        place_holding = list(place_joints)
+        if len(place_holding) >= 6:
+            place_holding[5] = gripper_grasp
+
         # 1. 架起到过渡姿态
-        arm.move_joints(ready_pose, speed_normal)
+        arm.move_joints(ready_holding, speed_normal)
         # 2. 松开夹爪
         arm.set_gripper(gripper_open, speed_fast)
         # 3. 下降到物体位置
@@ -91,13 +98,13 @@ class GraspMotion:
         # 4. 夹紧
         arm.set_gripper(gripper_grasp, speed_fast)
         # 5. 抬回过渡姿态
-        arm.move_joints(ready_pose, speed_normal)
+        arm.move_joints(ready_holding, speed_normal)
         # 6a. 先转 joint1 对准放置区（手册：单独先转 joint1，避免扫到其它物体）
-        turn = list(ready_pose)
-        turn[0] = place_joints[0]
+        turn = list(ready_holding)
+        turn[0] = place_holding[0]
         arm.move_joints(turn, speed_normal)
         # 6b. 移动到放置姿态
-        arm.move_joints(place_joints, speed_normal)
+        arm.move_joints(place_holding, speed_normal)
         # 7. 松开夹爪，释放
         arm.set_gripper(gripper_open, speed_fast)
         # 8. 抬起

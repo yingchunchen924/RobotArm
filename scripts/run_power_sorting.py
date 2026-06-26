@@ -34,12 +34,30 @@ from robotarm.runner import PowerSortingRunner                 # noqa: E402
 from robotarm.states import StatusEvent                        # noqa: E402
 
 
-def make_camera_source(camera_index: int, width: int, height: int):
+def make_camera_source(
+    camera_index: int,
+    width: int,
+    height: int,
+    camera_api: str = "auto",
+):
     """返回一个读帧函数：每次调用返回缩放后的一帧 BGR 图，失败返回 None。"""
     import cv2
-    cap = cv2.VideoCapture(camera_index)
+
+    # Atlas 200I DK A2 上默认 OpenCV 后端可能在 VideoCapture(0) 时直接
+    # Bus error，实测指定 V4L2 后端可以稳定读帧。
+    use_v4l2 = camera_api == "v4l2" or (
+        camera_api == "auto" and sys.platform.startswith("linux")
+    )
+    if use_v4l2:
+        cap = cv2.VideoCapture(camera_index, cv2.CAP_V4L2)
+    else:
+        cap = cv2.VideoCapture(camera_index)
+
     if not cap.isOpened():
         raise RuntimeError(f"无法打开摄像头 {camera_index}")
+
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
 
     def read():
         ok, frame = cap.read()
@@ -103,6 +121,12 @@ def main() -> int:
     ap.add_argument("--backend", default="acl", choices=["onnx", "acl"])
     ap.add_argument("--model", required=True, help=".onnx 或 .om 模型路径")
     ap.add_argument("--camera", type=int, default=0)
+    ap.add_argument(
+        "--camera-api",
+        default="auto",
+        choices=["auto", "v4l2", "default"],
+        help="摄像头 OpenCV 后端；开发板建议 auto/v4l2",
+    )
     ap.add_argument("--mock", action="store_true", help="逆解+机械臂用 Mock（PC 烟测）")
     ap.add_argument("--max-frames", type=int, default=0, help="处理帧数上限，0=不限")
     ap.add_argument("--conf", type=float, default=0.25)
@@ -117,7 +141,7 @@ def main() -> int:
     arm = build_arm(args.mock)
     offset = load_offset()
 
-    cam = make_camera_source(args.camera, w, h)
+    cam = make_camera_source(args.camera, w, h, args.camera_api)
 
     runner = PowerSortingRunner(
         detector=detector, kinematics=kinematics, arm=arm,

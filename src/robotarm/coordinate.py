@@ -14,12 +14,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Tuple
+from typing import Dict, List, Optional, Tuple
 
 
 @dataclass(frozen=True)
 class CoordinateParams:
-    """坐标转换参数（从 arm.yaml 的 coordinate 段构造）。"""
+    """坐标转换参数（从 arm.yaml 的 coordinate 段构造）。
+
+    ``model`` 决定像素->坐标的换算方式：
+
+    - ``legacy``：手册原始公式 (point_x-320)/4000 等（默认，向后兼容）。
+    - ``affine``：本机重新标定的仿射 2x3，``affine`` 为 [[a11,a12,a13],[a21,a22,a23]]，
+      tar = A·[cx,cy,1]ᵀ。由 scripts/board/calibrate_pixel_map.py 拟合得到。
+    - ``homography``：3x3 单应（可选，残差明显更优时使用）。
+    """
 
     image_width: int = 640
     image_height: int = 480
@@ -28,6 +36,9 @@ class CoordinateParams:
     y_div: float = 3000.0
     y_scale: float = 0.8
     y_bias: float = 0.19
+    model: str = "legacy"
+    affine: Optional[List[List[float]]] = None
+    homography: Optional[List[List[float]]] = None
 
     @classmethod
     def from_config(cls, cfg: Dict) -> "CoordinateParams":
@@ -40,6 +51,9 @@ class CoordinateParams:
             y_div=c.get("y_div", 3000.0),
             y_scale=c.get("y_scale", 0.8),
             y_bias=c.get("y_bias", 0.19),
+            model=c.get("model", "legacy"),
+            affine=c.get("affine"),
+            homography=c.get("homography"),
         )
 
 
@@ -70,9 +84,32 @@ def pixel_to_arm(
 ) -> Tuple[float, float]:
     """把图像中的目标中心像素坐标转换为机械臂平面坐标 (x, y)，单位米。
 
-    与手册公式逐项对应，结果保留 5 位小数。
+    按 ``params.model`` 分派：
+
+    - ``legacy``：手册公式，与原实现逐项对应，结果保留 5 位小数。
+    - ``affine``：tar = A·[cx,cy,1]ᵀ（本机标定）。
+    - ``homography``：齐次变换后除以 w。
+
+    affine/homography 若声明了 model 但缺少矩阵，回退到 legacy 公式。
     """
     p = params or CoordinateParams()
+
+    if p.model == "affine" and p.affine is not None:
+        a = p.affine
+        x = a[0][0] * point_x + a[0][1] * point_y + a[0][2]
+        y = a[1][0] * point_x + a[1][1] * point_y + a[1][2]
+        return round(x, 5), round(y, 5)
+
+    if p.model == "homography" and p.homography is not None:
+        h = p.homography
+        w = h[2][0] * point_x + h[2][1] * point_y + h[2][2]
+        if abs(w) < 1e-12:
+            raise ValueError("homography produced w≈0")
+        x = (h[0][0] * point_x + h[0][1] * point_y + h[0][2]) / w
+        y = (h[1][0] * point_x + h[1][1] * point_y + h[1][2]) / w
+        return round(x, 5), round(y, 5)
+
+    # legacy（默认）
     x = round((point_x - p.x_center) / p.x_div, 5)
     y = round((p.image_height - point_y) / p.y_div * p.y_scale + p.y_bias, 5)
     return x, y
